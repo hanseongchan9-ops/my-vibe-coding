@@ -25,7 +25,6 @@ FEATURES = [
     "day_sin", "day_cos"
 ]
 
-
 # -----------------------------
 # 모델 클래스 정의 (NumPy 기반)
 # -----------------------------
@@ -45,7 +44,6 @@ class LinearRegressionModel:
         X_with_intercept = np.column_stack([np.ones(len(X)), X])
         return X_with_intercept @ self.coefficients
 
-
 class MeanBaselineModel:
     def __init__(self):
         self.mean_value = None
@@ -57,14 +55,13 @@ class MeanBaselineModel:
     def predict(self, X):
         return np.full(len(X), self.mean_value, dtype=float)
 
-
 # -----------------------------
 # 데이터 로드 및 전처리
 # -----------------------------
 @st.cache_data
 def load_and_prepare_data():
     if not DATA_PATH.exists():
-        raise FileNotFoundError("energydata_complete.csv 파일을 찾을 수 없습니다. main.py와 같은 폴더에 업로드해 주세요.")
+        raise FileNotFoundError("energydata_complete.csv 파일을 찾을 수 없습니다. app.py와 같은 폴더에 업로드해 주세요.")
 
     raw_df = pd.read_csv(DATA_PATH)
     required = ["date", "Appliances", "T1", "RH_1", "T2", "RH_2", "T_out", "RH_out", "Windspeed", "lights"]
@@ -78,8 +75,7 @@ def load_and_prepare_data():
     raw_df = raw_df.drop_duplicates(subset=["date"]).sort_values("date").reset_index(drop=True)
 
     df = raw_df.copy()
-
-    # 시간 순환(Cyclical) 특성 인코딩
+    
     df["hour"] = df["date"].dt.hour
     df["dayofweek"] = df["date"].dt.dayofweek
 
@@ -88,13 +84,12 @@ def load_and_prepare_data():
     df["day_sin"] = np.sin(2 * np.pi * df["dayofweek"] / 7)
     df["day_cos"] = np.cos(2 * np.pi * df["dayofweek"] / 7)
 
-    # 타깃 변수 설정 (정확히 10분 뒤의 에너지 소비량)
     target_df = df[["date", "Appliances"]].rename(
         columns={"date": "target_time", "Appliances": "target_next"}
     )
     df["target_time"] = df["date"] + pd.Timedelta(minutes=10)
     df = df.merge(target_df, on="target_time", how="inner").drop(columns=["target_time"])
-
+    
     df = df.dropna(subset=FEATURES + ["target_next"]).reset_index(drop=True)
 
     X = df[FEATURES].astype(float)
@@ -114,28 +109,25 @@ def load_and_prepare_data():
     }
     return raw_df, df, splits
 
-
 @st.cache_resource
 def get_trained_models(_splits):
     model = LinearRegressionModel().fit(_splits["X_train"], _splits["y_train"])
     baseline = MeanBaselineModel().fit(_splits["X_train"], _splits["y_train"])
     return model, baseline
 
-
 def evaluate_metrics(y_true, y_pred):
     actual = np.asarray(y_true, dtype=float)
     pred = np.asarray(y_pred, dtype=float)
     errors = actual - pred
-
+    
     mae = float(np.mean(np.abs(errors)))
     rmse = float(np.sqrt(np.mean(errors ** 2)))
-
+    
     ss_res = np.sum(errors ** 2)
     ss_tot = np.sum((actual - np.mean(actual)) ** 2)
     r2 = float(1 - (ss_res / ss_tot)) if ss_tot != 0 else 0.0
-
+    
     return {"MAE": mae, "RMSE": rmse, "R2": r2}
-
 
 # -----------------------------
 # 메인 앱 UI 구성
@@ -157,7 +149,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "📈 3. 모델 평가"
 ])
 
-
 # =============================
 # TAB 1: 프로젝트 소개
 # =============================
@@ -173,27 +164,15 @@ with tab1:
         "10분 후 가정용 전자기기의 에너지 소비량을 얼마나 정확하게 예측할 수 있을까?"
     )
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("#### 📊 데이터 분석")
-        st.write("- 전체 데이터 요약 및 기초 통계 확인\n- 에너지 소비량 빈도 히스토그램 시각화\n- 시간대별 평균 소비 패턴 시계열 시각화")
-    with col2:
-        st.markdown("#### 🔮 에너지 예측")
-        st.write("- 실내외 온도·습도·풍속·조명 사용자 입력\n- 요일 및 시간대 슬라이더 설정\n- 10분 후 예상 소비량 도출 및 평균 대비 비교")
-    with col3:
-        st.markdown("#### 📈 모델 평가")
-        st.write("- 시계열 특성을 반영한 분할 (70:15:15)\n- MAE, RMSE, R² 지표 산출 및 기준 모델 비교\n- 각 입력 변수의 회귀 계수(영향력) 시각화")
-
     st.divider()
     st.caption("Data Source: UCI Machine Learning Repository | Appliances Energy Prediction")
-
 
 # =============================
 # TAB 2: 데이터 분석
 # =============================
 with tab2:
     st.header("데이터 기본 정보")
-
+    
     c1, c2, c3 = st.columns(3)
     c1.metric("전체 데이터 수", f"{len(raw_df):,}개")
     c2.metric("입력 변수 수", f"{len(FEATURES)}개")
@@ -219,7 +198,7 @@ with tab2:
     }
     info_df = raw_df[list(variable_info.keys())].describe().T
     info_df["변수 설명"] = info_df.index.map(variable_info)
-
+    
     st.dataframe(info_df, use_container_width=True)
 
     st.divider()
@@ -248,6 +227,12 @@ with tab2:
         st.pyplot(fig2)
         plt.close(fig2)
 
+    # 새로 추가된 변수 간 상관관계 히트맵
+    st.divider()
+    st.subheader("변수 간 상관관계 (Correlation)")
+    corr_df = raw_df[list(variable_info.keys())].corr()
+    st.dataframe(corr_df.style.background_gradient(cmap="coolwarm"), use_container_width=True)
+    st.caption("※ 1이나 -1에 가까울수록 강한 상관관계를 의미하며, 이 결과를 바탕으로 예측 모델의 독립 변수를 선정했습니다.")
 
 # =============================
 # TAB 3: 에너지 예측
@@ -257,7 +242,7 @@ with tab3:
     st.write("현재 시점의 실내외 환경과 시간 정보를 입력한 뒤 예측 버튼을 누르세요.")
 
     col_in1, col_in2 = st.columns(2)
-
+    
     with col_in1:
         st.subheader("실내 환경")
         t1 = st.number_input("주방 온도 T1 (°C)", value=22.0, step=0.5)
@@ -273,7 +258,7 @@ with tab3:
         lights = st.number_input("조명 에너지 사용량 lights (Wh)", min_value=0.0, value=10.0, step=10.0)
 
     st.divider()
-
+    
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         hour = st.slider("현재 시각 (시)", min_value=0, max_value=23, value=18)
@@ -283,7 +268,7 @@ with tab3:
         dayofweek = day_names.index(day_name)
 
     st.divider()
-
+    
     if st.button("10분 후 에너지 소비량 예측하기", type="primary", use_container_width=True):
         input_df = pd.DataFrame([{
             "T1": t1,
@@ -315,6 +300,21 @@ with tab3:
         else:
             st.info("입력된 환경 변수들의 복합적인 영향을 선형회귀식에 대입하여 산출된 예상 수치입니다.")
 
+    # 새로 추가된 예측 시뮬레이션 (실제값 vs 예측값 그래프)
+    st.divider()
+    st.subheader("과거 데이터 예측 시뮬레이션 (실제값 vs 예측값)")
+    
+    X_test_sample = splits["X_test"].iloc[:200]
+    y_test_sample = splits["y_test"].iloc[:200]
+    test_pred_sample = np.ravel(model.predict(X_test_sample))
+    
+    chart_df = pd.DataFrame({
+        "실제 소비량 (Actual)": y_test_sample.values,
+        "예측 소비량 (Predicted)": test_pred_sample
+    })
+    
+    st.line_chart(chart_df)
+    st.caption("※ 모델이 전반적인 흐름은 따라가지만, 갑작스러운 전력 소비 급증(스파이크) 구간은 선형 모델의 한계로 완벽히 포착하지 못함을 알 수 있습니다.")
 
 # =============================
 # TAB 4: 모델 평가
@@ -339,7 +339,7 @@ with tab4:
 
     st.divider()
     st.subheader("평가 지표 요약 (평가 데이터 기준)")
-
+    
     m1, m2, m3 = st.columns(3)
     m1.metric("MAE (평균 절대 오차)", f"{model_scores['MAE']:.2f} Wh")
     m2.metric("RMSE (평균 제곱근 오차)", f"{model_scores['RMSE']:.2f} Wh")
@@ -362,40 +362,6 @@ with tab4:
 
     st.divider()
     st.subheader("각 환경 변수가 에너지 소비량에 미치는 영향 (회귀 계수)")
-
+    
     coefs = model.coefficients[1:]
-    coef_df = pd.DataFrame({
-        "Feature": FEATURES,
-        "Coefficient": coefs
-    }).sort_values(by="Coefficient", ascending=True)
-
-    fig_coef, ax_coef = plt.subplots(figsize=(9, 6))
-    colors = ["#4C78A8" if c < 0 else "#E45756" for c in coef_df["Coefficient"]]
-
-    ax_coef.barh(coef_df["Feature"], coef_df["Coefficient"], color=colors, edgecolor="black")
-    ax_coef.axvline(0, color="gray", linestyle="--", linewidth=1)
-
-    ax_coef.set_xlabel("Impact on Energy Consumption (Wh) per 1 unit change")
-    ax_coef.set_title("Linear Regression Coefficients (Feature Importance)")
-    st.pyplot(fig_coef)
-    plt.close(fig_coef)
-
-    st.caption(
-        "※ 양수(빨간색 막대) 변수는 값이 커질수록 전력 소비량을 늘리는 요인이며, "
-        "음수(파란색 막대) 변수는 줄이는 요인입니다. "
-        "다만 단위가 다른 변수들 간의 단순 크기 비교이므로 절대적 영향력 순위로 해석할 수는 없습니다."
-    )
-
-    st.divider()
-    st.subheader("예측 오차(잔차) 분포")
-    errors = y_test.values - test_pred
-
-    fig3, ax3 = plt.subplots(figsize=(9, 3.5))
-    ax3.hist(errors, bins=35, color="#54A24B", edgecolor="black")
-    ax3.axvline(0, color="red", linestyle="--", linewidth=1.2)
-    ax3.set_xlabel("Prediction Error (Actual - Predicted, Wh)")
-    ax3.set_ylabel("Frequency")
-    ax3.set_title("Residual Error Distribution")
-
-    st.pyplot(fig3)
-    plt.close(fig3)
+    coef_df = pd
