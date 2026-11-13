@@ -227,7 +227,6 @@ with tab2:
         st.pyplot(fig2)
         plt.close(fig2)
 
-    # 새로 추가된 변수 간 상관관계 히트맵
     st.divider()
     st.subheader("변수 간 상관관계 (Correlation)")
     corr_df = raw_df[list(variable_info.keys())].corr()
@@ -300,22 +299,6 @@ with tab3:
         else:
             st.info("입력된 환경 변수들의 복합적인 영향을 선형회귀식에 대입하여 산출된 예상 수치입니다.")
 
-    # 새로 추가된 예측 시뮬레이션 (실제값 vs 예측값 그래프)
-    st.divider()
-    st.subheader("과거 데이터 예측 시뮬레이션 (실제값 vs 예측값)")
-    
-    X_test_sample = splits["X_test"].iloc[:200]
-    y_test_sample = splits["y_test"].iloc[:200]
-    test_pred_sample = np.ravel(model.predict(X_test_sample))
-    
-    chart_df = pd.DataFrame({
-        "실제 소비량 (Actual)": y_test_sample.values,
-        "예측 소비량 (Predicted)": test_pred_sample
-    })
-    
-    st.line_chart(chart_df)
-    st.caption("※ 모델이 전반적인 흐름은 따라가지만, 갑작스러운 전력 소비 급증(스파이크) 구간은 선형 모델의 한계로 완벽히 포착하지 못함을 알 수 있습니다.")
-
 # =============================
 # TAB 4: 모델 평가
 # =============================
@@ -361,7 +344,49 @@ with tab4:
     st.dataframe(comparison_df, use_container_width=True)
 
     st.divider()
+    st.subheader("실제값 vs 예측값 시계열 비교 (테스트 데이터 200개 구간)")
+    
+    chart_df = pd.DataFrame({
+        "실제 소비량 (Actual)": y_test.values[:200],
+        "예측 소비량 (Predicted)": test_pred[:200]
+    })
+    
+    st.line_chart(chart_df)
+    st.caption("※ 모델이 전반적인 흐름은 따라가지만, 갑작스러운 전력 소비 급증(스파이크) 구간은 선형 모델의 한계로 완벽히 포착하지 못함을 알 수 있습니다.")
+
+    st.divider()
     st.subheader("각 환경 변수가 에너지 소비량에 미치는 영향 (회귀 계수)")
     
     coefs = model.coefficients[1:]
-    coef_df = pd
+    coef_df = pd.DataFrame({
+        "Feature": FEATURES,
+        "Coefficient": coefs
+    }).sort_values(by="Coefficient", ascending=True)
+
+    fig_coef, ax_coef = plt.subplots(figsize=(9, 6))
+    colors = ['#4C78A8' if c < 0 else '#E45756' for c in coef_df["Coefficient"]]
+    
+    ax_coef.barh(coef_df["Feature"], coef_df["Coefficient"], color=colors, edgecolor="black")
+    ax_coef.axvline(0, color="gray", linestyle="--", linewidth=1)
+    
+    ax_coef.set_xlabel("Impact on Energy Consumption (Wh) per 1 unit change")
+    ax_coef.set_title("Linear Regression Coefficients (Feature Importance)")
+    st.pyplot(fig_coef)
+    plt.close(fig_coef)
+
+    st.caption("※ 양수(빨간색 막대) 변수는 값이 커질수록 전력 소비량을 늘리는 요인이며, 음수(파란색 막대) 변수는 줄이는 요인입니다. "
+               "단위가 다른 변수들 간의 단순 크기 비교이므로 절대적 영향력 순위로 해석할 수는 없습니다.")
+
+    st.divider()
+    st.subheader("예측 오차(잔차) 분포")
+    errors = y_test.values - test_pred
+    
+    fig3, ax3 = plt.subplots(figsize=(9, 3.5))
+    ax3.hist(errors, bins=35, color="#54A24B", edgecolor="black")
+    ax3.axvline(0, color="red", linestyle="--", linewidth=1.2)
+    ax3.set_xlabel("Prediction Error (Actual - Predicted, Wh)")
+    ax3.set_ylabel("Frequency")
+    ax3.set_title("Residual Error Distribution")
+    
+    st.pyplot(fig3)
+    plt.close(fig3)
