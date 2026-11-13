@@ -3,6 +3,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
+
+# -----------------------------
+# 한글 폰트 설정 (윈도우/맥 호환)
+# -----------------------------
+if os.name == 'nt':
+    plt.rc('font', family='Malgun Gothic')
+else:
+    plt.rc('font', family='AppleGothic')
+plt.rcParams['axes.unicode_minus'] = False
 
 # -----------------------------
 # 페이지 기본 설정
@@ -24,6 +34,21 @@ FEATURES = [
     "hour_sin", "hour_cos",
     "day_sin", "day_cos"
 ]
+
+FEATURE_NAMES_KO = {
+    "T1": "T1 (주방 온도)", 
+    "RH_1": "RH_1 (주방 습도)",
+    "T2": "T2 (거실 온도)", 
+    "RH_2": "RH_2 (거실 습도)",
+    "T_out": "T_out (외부 온도)", 
+    "RH_out": "RH_out (외부 습도)",
+    "Windspeed": "Windspeed (풍속)", 
+    "lights": "lights (조명 사용량)",
+    "hour_sin": "hour_sin (시간 사인)", 
+    "hour_cos": "hour_cos (시간 코사인)",
+    "day_sin": "day_sin (요일 사인)", 
+    "day_cos": "day_cos (요일 코사인)"
+}
 
 # -----------------------------
 # 모델 클래스 정의 (NumPy 기반)
@@ -61,7 +86,7 @@ class MeanBaselineModel:
 @st.cache_data
 def load_and_prepare_data():
     if not DATA_PATH.exists():
-        raise FileNotFoundError("energydata_complete.csv 파일을 찾을 수 없습니다. app.py와 같은 폴더에 업로드해 주세요.")
+        raise FileNotFoundError("energydata_complete.csv 파일이 앱과 같은 폴더에 없습니다.")
 
     raw_df = pd.read_csv(DATA_PATH)
     required = ["date", "Appliances", "T1", "RH_1", "T2", "RH_2", "T_out", "RH_out", "Windspeed", "lights"]
@@ -230,14 +255,6 @@ with tab2:
     st.divider()
     st.subheader("변수 간 상관관계 (Correlation)")
     corr_df = raw_df[list(variable_info.keys())].corr()
-    # =============================
-    # 수정 전
-    # =============================
-    # st.dataframe(corr_df.style.background_gradient(cmap="coolwarm"), use_container_width=True)
-
-    # =============================
-    # 수정 후 (눈이 편안한 난색 계열 적용)
-    # =============================
     st.dataframe(corr_df.style.background_gradient(cmap="YlOrRd"), use_container_width=True)
     st.caption("※ 1이나 -1에 가까울수록 강한 상관관계를 의미하며, 이 결과를 바탕으로 예측 모델의 독립 변수를 선정했습니다.")
 
@@ -367,23 +384,17 @@ with tab4:
     
     coefs = model.coefficients[1:]
     coef_df = pd.DataFrame({
-        "Feature": FEATURES,
-        "Coefficient": coefs
-    }).sort_values(by="Coefficient", ascending=True)
+        "환경 변수": [FEATURE_NAMES_KO[f] for f in FEATURES],
+        "회귀 계수 (1단위 변화당 영향력)": coefs
+    }).sort_values(by="회귀 계수 (1단위 변화당 영향력)", ascending=False)
 
-    fig_coef, ax_coef = plt.subplots(figsize=(9, 6))
-    colors = ['#4C78A8' if c < 0 else '#E45756' for c in coef_df["Coefficient"]]
-    
-    ax_coef.barh(coef_df["Feature"], coef_df["Coefficient"], color=colors, edgecolor="black")
-    ax_coef.axvline(0, color="gray", linestyle="--", linewidth=1)
-    
-    ax_coef.set_xlabel("Impact on Energy Consumption (Wh) per 1 unit change")
-    ax_coef.set_title("Linear Regression Coefficients (Feature Importance)")
-    st.pyplot(fig_coef)
-    plt.close(fig_coef)
+    st.dataframe(
+        coef_df.style.background_gradient(cmap="coolwarm", subset=["회귀 계수 (1단위 변화당 영향력)"]).format({"회귀 계수 (1단위 변화당 영향력)": "{:.4f}"}),
+        use_container_width=True
+    )
 
-    st.caption("※ 양수(빨간색 막대) 변수는 값이 커질수록 전력 소비량을 늘리는 요인이며, 음수(파란색 막대) 변수는 줄이는 요인입니다. "
-               "단위가 다른 변수들 간의 단순 크기 비교이므로 절대적 영향력 순위로 해석할 수는 없습니다.")
+    st.caption("※ 계수가 양수인 변수는 값이 커질수록 전력 소비량을 늘리는 요인이며, 음수인 변수는 줄이는 요인입니다. "
+               "다만 단위가 다른 변수들 간의 단순 크기 비교이므로 절대적 영향력 순위로 해석할 수는 없습니다.")
 
     st.divider()
     st.subheader("예측 오차(잔차) 분포")
