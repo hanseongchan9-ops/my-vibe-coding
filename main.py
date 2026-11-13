@@ -51,7 +51,7 @@ FEATURE_NAMES_KO = {
 }
 
 # -----------------------------
-# 모델 클래스 정의 (NumPy 기반)
+# 선형회귀 모델 (NumPy 최소제곱법)
 # -----------------------------
 class LinearRegressionModel:
     def __init__(self):
@@ -69,6 +69,9 @@ class LinearRegressionModel:
         X_with_intercept = np.column_stack([np.ones(len(X)), X])
         return X_with_intercept @ self.coefficients
 
+# -----------------------------
+# 평균 기준 모델
+# -----------------------------
 class MeanBaselineModel:
     def __init__(self):
         self.mean_value = None
@@ -81,12 +84,12 @@ class MeanBaselineModel:
         return np.full(len(X), self.mean_value, dtype=float)
 
 # -----------------------------
-# 데이터 로드 및 전처리
+# 데이터 불러오기 및 전처리
 # -----------------------------
 @st.cache_data
 def load_and_prepare_data():
     if not DATA_PATH.exists():
-        raise FileNotFoundError("energydata_complete.csv 파일을 찾을 수 없습니다. app.py와 같은 폴더에 업로드해 주세요.")
+        raise FileNotFoundError("energydata_complete.csv 파일이 app.py와 같은 폴더에 없습니다.")
 
     raw_df = pd.read_csv(DATA_PATH)
     required = ["date", "Appliances", "T1", "RH_1", "T2", "RH_2", "T_out", "RH_out", "Windspeed", "lights"]
@@ -134,12 +137,18 @@ def load_and_prepare_data():
     }
     return raw_df, df, splits
 
+# -----------------------------
+# 모델 학습
+# -----------------------------
 @st.cache_resource
 def get_trained_models(_splits):
     model = LinearRegressionModel().fit(_splits["X_train"], _splits["y_train"])
     baseline = MeanBaselineModel().fit(_splits["X_train"], _splits["y_train"])
     return model, baseline
 
+# -----------------------------
+# 평가지표 계산
+# -----------------------------
 def evaluate_metrics(y_true, y_pred):
     actual = np.asarray(y_true, dtype=float)
     pred = np.asarray(y_pred, dtype=float)
@@ -155,7 +164,7 @@ def evaluate_metrics(y_true, y_pred):
     return {"MAE": mae, "RMSE": rmse, "R2": r2}
 
 # -----------------------------
-# 메인 앱 UI 구성
+# UI 메인
 # -----------------------------
 st.title("⚡ Smart Energy Predictor")
 st.caption("가정용 전자기기 에너지 소비량 분석 및 10분 후 소비량 예측 시스템")
