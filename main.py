@@ -3,24 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import os
-
-# -----------------------------
-# 한글 폰트 설정 (로컬 및 클라우드 호환)
-# -----------------------------
-import matplotlib.font_manager as fm
-
-cloud_font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
-
-if os.path.exists(cloud_font_path):
-    fm.fontManager.addfont(cloud_font_path)
-    plt.rc('font', family='NanumGothic')
-elif os.name == 'nt':
-    plt.rc('font', family='Malgun Gothic')
-else:
-    plt.rc('font', family='AppleGothic')
-
-plt.rcParams['axes.unicode_minus'] = False
 
 # -----------------------------
 # 페이지 기본 설정
@@ -43,23 +25,8 @@ FEATURES = [
     "day_sin", "day_cos"
 ]
 
-FEATURE_NAMES_KO = {
-    "T1": "T1 (주방 온도)", 
-    "RH_1": "RH_1 (주방 습도)",
-    "T2": "T2 (거실 온도)", 
-    "RH_2": "RH_2 (거실 습도)",
-    "T_out": "T_out (외부 온도)", 
-    "RH_out": "RH_out (외부 습도)",
-    "Windspeed": "Windspeed (풍속)", 
-    "lights": "lights (조명 사용량)",
-    "hour_sin": "hour_sin (시간 사인)", 
-    "hour_cos": "hour_cos (시간 코사인)",
-    "day_sin": "day_sin (요일 사인)", 
-    "day_cos": "day_cos (요일 코사인)"
-}
-
 # -----------------------------
-# 선형회귀 모델 (NumPy 최소제곱법)
+# 모델 클래스 정의 (NumPy 기반)
 # -----------------------------
 class LinearRegressionModel:
     def __init__(self):
@@ -77,9 +44,6 @@ class LinearRegressionModel:
         X_with_intercept = np.column_stack([np.ones(len(X)), X])
         return X_with_intercept @ self.coefficients
 
-# -----------------------------
-# 평균 기준 모델
-# -----------------------------
 class MeanBaselineModel:
     def __init__(self):
         self.mean_value = None
@@ -92,12 +56,12 @@ class MeanBaselineModel:
         return np.full(len(X), self.mean_value, dtype=float)
 
 # -----------------------------
-# 데이터 불러오기 및 전처리
+# 데이터 로드 및 전처리
 # -----------------------------
 @st.cache_data
 def load_and_prepare_data():
     if not DATA_PATH.exists():
-        raise FileNotFoundError("energydata_complete.csv 파일이 app.py와 같은 폴더에 없습니다.")
+        raise FileNotFoundError("energydata_complete.csv 파일을 찾을 수 없습니다. app.py와 같은 폴더에 업로드해 주세요.")
 
     raw_df = pd.read_csv(DATA_PATH)
     required = ["date", "Appliances", "T1", "RH_1", "T2", "RH_2", "T_out", "RH_out", "Windspeed", "lights"]
@@ -145,18 +109,12 @@ def load_and_prepare_data():
     }
     return raw_df, df, splits
 
-# -----------------------------
-# 모델 학습
-# -----------------------------
 @st.cache_resource
 def get_trained_models(_splits):
     model = LinearRegressionModel().fit(_splits["X_train"], _splits["y_train"])
     baseline = MeanBaselineModel().fit(_splits["X_train"], _splits["y_train"])
     return model, baseline
 
-# -----------------------------
-# 평가지표 계산
-# -----------------------------
 def evaluate_metrics(y_true, y_pred):
     actual = np.asarray(y_true, dtype=float)
     pred = np.asarray(y_pred, dtype=float)
@@ -172,7 +130,7 @@ def evaluate_metrics(y_true, y_pred):
     return {"MAE": mae, "RMSE": rmse, "R2": r2}
 
 # -----------------------------
-# UI 메인
+# 메인 앱 UI 구성
 # -----------------------------
 st.title("⚡ Smart Energy Predictor")
 st.caption("가정용 전자기기 에너지 소비량 분석 및 10분 후 소비량 예측 시스템")
@@ -228,18 +186,18 @@ with tab2:
     st.divider()
     st.subheader("주요 변수 기초 통계량")
     variable_info = {
-        "T1": "주방 온도 (°C)",
-        "RH_1": "주방 습도 (%)",
-        "T2": "거실 온도 (°C)",
-        "RH_2": "거실 습도 (%)",
-        "T_out": "외부 온도 (°C)",
-        "RH_out": "외부 습도 (%)",
-        "Windspeed": "풍속 (m/s)",
-        "lights": "조명 에너지 사용량 (Wh)",
-        "Appliances": "전자기기 에너지 사용량 (Wh)"
+        "T1": "T1 (주방 온도, °C)",
+        "RH_1": "RH_1 (주방 습도, %)",
+        "T2": "T2 (거실 온도, °C)",
+        "RH_2": "RH_2 (거실 습도, %)",
+        "T_out": "T_out (외부 온도, °C)",
+        "RH_out": "RH_out (외부 습도, %)",
+        "Windspeed": "Windspeed (풍속, m/s)",
+        "lights": "lights (조명 사용량, Wh)",
+        "Appliances": "Appliances (전자기기 사용량, Wh)"
     }
     info_df = raw_df[list(variable_info.keys())].describe().T
-    info_df["변수 설명"] = info_df.index.map(variable_info)
+    info_df["설명"] = info_df.index.map(variable_info)
     
     st.dataframe(info_df, use_container_width=True)
 
@@ -250,9 +208,9 @@ with tab2:
         st.subheader("전자기기 에너지 소비량 분포")
         fig1, ax1 = plt.subplots(figsize=(6, 4))
         ax1.hist(raw_df["Appliances"], bins=30, color="#4C78A8", edgecolor="black")
-        ax1.set_xlabel("에너지 소비량 (Wh)")
-        ax1.set_ylabel("빈도")
-        ax1.set_title("전자기기 에너지 소비량 분포")
+        ax1.set_xlabel("Energy Consumption (Wh)")
+        ax1.set_ylabel("Frequency")
+        ax1.set_title("Appliances Energy Distribution")
         st.pyplot(fig1)
         plt.close(fig1)
 
@@ -261,9 +219,9 @@ with tab2:
         hourly = raw_df.groupby(raw_df["date"].dt.hour)["Appliances"].mean()
         fig2, ax2 = plt.subplots(figsize=(6, 4))
         ax2.plot(hourly.index, hourly.values, marker="o", color="#F58518")
-        ax2.set_xlabel("시간대 (0-23시)")
-        ax2.set_ylabel("평균 소비량 (Wh)")
-        ax2.set_title("시간대별 평균 에너지 소비량")
+        ax2.set_xlabel("Hour of Day (0-23)")
+        ax2.set_ylabel("Mean Consumption (Wh)")
+        ax2.set_title("Hourly Average Energy Consumption")
         ax2.set_xticks(range(0, 24, 2))
         ax2.grid(True, linestyle="--", alpha=0.5)
         st.pyplot(fig2)
@@ -286,17 +244,17 @@ with tab3:
     
     with col_in1:
         st.subheader("실내 환경")
-        t1 = st.number_input("주방 온도 T1 (°C)", value=22.0, step=0.5)
-        rh1 = st.number_input("주방 습도 RH_1 (%)", min_value=0.0, max_value=100.0, value=45.0, step=1.0)
-        t2 = st.number_input("거실 온도 T2 (°C)", value=21.0, step=0.5)
-        rh2 = st.number_input("거실 습도 RH_2 (%)", min_value=0.0, max_value=100.0, value=45.0, step=1.0)
+        t1 = st.number_input("T1 (주방 온도, °C)", value=22.0, step=0.5)
+        rh1 = st.number_input("RH_1 (주방 습도, %)", min_value=0.0, max_value=100.0, value=45.0, step=1.0)
+        t2 = st.number_input("T2 (거실 온도, °C)", value=21.0, step=0.5)
+        rh2 = st.number_input("RH_2 (거실 습도, %)", min_value=0.0, max_value=100.0, value=45.0, step=1.0)
 
     with col_in2:
         st.subheader("외부 환경 및 조명")
-        tout = st.number_input("외부 온도 T_out (°C)", value=12.0, step=0.5)
-        rhout = st.number_input("외부 습도 RH_out (%)", min_value=0.0, max_value=100.0, value=60.0, step=1.0)
-        windspeed = st.number_input("풍속 Windspeed (m/s)", min_value=0.0, value=3.0, step=0.5)
-        lights = st.number_input("조명 에너지 사용량 lights (Wh)", min_value=0.0, value=10.0, step=10.0)
+        tout = st.number_input("T_out (외부 온도, °C)", value=12.0, step=0.5)
+        rhout = st.number_input("RH_out (외부 습도, %)", min_value=0.0, max_value=100.0, value=60.0, step=1.0)
+        windspeed = st.number_input("Windspeed (풍속, m/s)", min_value=0.0, value=3.0, step=0.5)
+        lights = st.number_input("lights (조명 사용량, Wh)", min_value=0.0, value=10.0, step=10.0)
 
     st.divider()
     
@@ -304,7 +262,7 @@ with tab3:
     with col_t1:
         hour = st.slider("현재 시각 (시)", min_value=0, max_value=23, value=18)
     with col_t2:
-        day_names = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+        day_names = ["월요일 (Mon)", "화요일 (Tue)", "수요일 (Wed)", "목요일 (Thu)", "금요일 (Fri)", "토요일 (Sat)", "일요일 (Sun)"]
         day_name = st.selectbox("요일", day_names, index=0)
         dayofweek = day_names.index(day_name)
 
@@ -366,12 +324,12 @@ with tab4:
     st.subheader("평가 지표 요약 (평가 데이터 기준)")
     
     m1, m2, m3 = st.columns(3)
-    m1.metric("MAE (평균 절대 오차)", f"{model_scores['MAE']:.2f} Wh")
-    m2.metric("RMSE (평균 제곱근 오차)", f"{model_scores['RMSE']:.2f} Wh")
-    m3.metric("R² (결정계수)", f"{model_scores['R2']:.4f}")
+    m1.metric("MAE", f"{model_scores['MAE']:.2f} Wh")
+    m2.metric("RMSE", f"{model_scores['RMSE']:.2f} Wh")
+    m3.metric("R²", f"{model_scores['R2']:.4f}")
 
     comparison_df = pd.DataFrame({
-        "평가 지표": ["MAE (Wh)", "RMSE (Wh)", "R²"],
+        "평가 지표": ["MAE (Wh)", "RMSE (Wh)", "R2"],
         "평균 기준 모델": [
             round(base_scores["MAE"], 4),
             round(base_scores["RMSE"], 4),
@@ -389,8 +347,8 @@ with tab4:
     st.subheader("실제값 vs 예측값 시계열 비교 (테스트 데이터 200개 구간)")
     
     chart_df = pd.DataFrame({
-        "실제 소비량 (Actual)": y_test.values[:200],
-        "예측 소비량 (Predicted)": test_pred[:200]
+        "Actual (Wh)": y_test.values[:200],
+        "Predicted (Wh)": test_pred[:200]
     })
     
     st.line_chart(chart_df)
@@ -401,7 +359,7 @@ with tab4:
     
     coefs = model.coefficients[1:]
     coef_df = pd.DataFrame({
-        "Feature": [FEATURE_NAMES_KO[f] for f in FEATURES],
+        "Feature": FEATURES,
         "Coefficient": coefs
     }).sort_values(by="Coefficient", ascending=True)
 
@@ -411,8 +369,8 @@ with tab4:
     ax_coef.barh(coef_df["Feature"], coef_df["Coefficient"], color=colors, edgecolor="black")
     ax_coef.axvline(0, color="gray", linestyle="--", linewidth=1)
     
-    ax_coef.set_xlabel("1단위 변화당 에너지 소비량(Wh)에 미치는 영향")
-    ax_coef.set_title("선형회귀 계수 (변수 중요도)")
+    ax_coef.set_xlabel("Impact on Energy Consumption (Wh) per 1 unit change")
+    ax_coef.set_title("Linear Regression Coefficients (Feature Importance)")
     st.pyplot(fig_coef)
     plt.close(fig_coef)
 
@@ -426,9 +384,9 @@ with tab4:
     fig3, ax3 = plt.subplots(figsize=(9, 3.5))
     ax3.hist(errors, bins=35, color="#54A24B", edgecolor="black")
     ax3.axvline(0, color="red", linestyle="--", linewidth=1.2)
-    ax3.set_xlabel("예측 오차 (실제값 - 예측값, Wh)")
-    ax3.set_ylabel("빈도")
-    ax3.set_title("잔차(예측 오차) 분포")
+    ax3.set_xlabel("Prediction Error (Actual - Predicted, Wh)")
+    ax3.set_ylabel("Frequency")
+    ax3.set_title("Residual Error Distribution")
     
     st.pyplot(fig3)
     plt.close(fig3)
