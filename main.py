@@ -6,12 +6,20 @@ from pathlib import Path
 import os
 
 # -----------------------------
-# 한글 폰트 설정 (윈도우/맥 호환)
+# 한글 폰트 설정 (로컬 및 클라우드 호환)
 # -----------------------------
-if os.name == 'nt':
+import matplotlib.font_manager as fm
+
+cloud_font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
+
+if os.path.exists(cloud_font_path):
+    fm.fontManager.addfont(cloud_font_path)
+    plt.rc('font', family='NanumGothic')
+elif os.name == 'nt':
     plt.rc('font', family='Malgun Gothic')
 else:
     plt.rc('font', family='AppleGothic')
+
 plt.rcParams['axes.unicode_minus'] = False
 
 # -----------------------------
