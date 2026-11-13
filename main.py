@@ -230,7 +230,15 @@ with tab2:
     st.divider()
     st.subheader("변수 간 상관관계 (Correlation)")
     corr_df = raw_df[list(variable_info.keys())].corr()
-    st.dataframe(corr_df.style.background_gradient(cmap="coolwarm"), use_container_width=True)
+    # =============================
+    # 수정 전
+    # =============================
+    # st.dataframe(corr_df.style.background_gradient(cmap="coolwarm"), use_container_width=True)
+
+    # =============================
+    # 수정 후 (눈이 편안한 난색 계열 적용)
+    # =============================
+    st.dataframe(corr_df.style.background_gradient(cmap="YlOrRd"), use_container_width=True)
     st.caption("※ 1이나 -1에 가까울수록 강한 상관관계를 의미하며, 이 결과를 바탕으로 예측 모델의 독립 변수를 선정했습니다.")
 
 # =============================
