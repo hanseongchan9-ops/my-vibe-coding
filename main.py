@@ -255,6 +255,10 @@ with tab2:
     st.divider()
     st.subheader("변수 간 상관관계 (Correlation)")
     corr_df = raw_df[list(variable_info.keys())].corr()
+    
+    # 📌 행과 열의 이름을 한국어 설명이 포함된 이름으로 덮어쓰기
+    corr_df = corr_df.rename(index=variable_info, columns=variable_info)
+    
     st.dataframe(corr_df.style.background_gradient(cmap="YlOrRd"), use_container_width=True)
     st.caption("※ 1이나 -1에 가까울수록 강한 상관관계를 의미하며, 이 결과를 바탕으로 예측 모델의 독립 변수를 선정했습니다.")
 
@@ -383,10 +387,15 @@ with tab4:
     st.subheader("각 환경 변수가 에너지 소비량에 미치는 영향 (회귀 계수)")
     
     coefs = model.coefficients[1:]
+    
+    # 📌 reset_index(drop=True)로 기존 인덱스를 지우고 새로 매기기
     coef_df = pd.DataFrame({
         "환경 변수": [FEATURE_NAMES_KO[f] for f in FEATURES],
         "회귀 계수 (1단위 변화당 영향력)": coefs
-    }).sort_values(by="회귀 계수 (1단위 변화당 영향력)", ascending=False)
+    }).sort_values(by="회귀 계수 (1단위 변화당 영향력)", ascending=False).reset_index(drop=True)
+
+    # 📌 인덱스를 1번부터 시작하도록 변경
+    coef_df.index = coef_df.index + 1
 
     st.dataframe(
         coef_df.style.background_gradient(cmap="coolwarm", subset=["회귀 계수 (1단위 변화당 영향력)"]).format({"회귀 계수 (1단위 변화당 영향력)": "{:.4f}"}),
