@@ -3,6 +3,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
+
+# -----------------------------
+# 한글 폰트 설정 (윈도우/맥 호환)
+# -----------------------------
+if os.name == 'nt':
+    plt.rc('font', family='Malgun Gothic')
+else:
+    plt.rc('font', family='AppleGothic')
+plt.rcParams['axes.unicode_minus'] = False
 
 # -----------------------------
 # 페이지 기본 설정
@@ -24,6 +34,21 @@ FEATURES = [
     "hour_sin", "hour_cos",
     "day_sin", "day_cos"
 ]
+
+FEATURE_NAMES_KO = {
+    "T1": "T1 (주방 온도)", 
+    "RH_1": "RH_1 (주방 습도)",
+    "T2": "T2 (거실 온도)", 
+    "RH_2": "RH_2 (거실 습도)",
+    "T_out": "T_out (외부 온도)", 
+    "RH_out": "RH_out (외부 습도)",
+    "Windspeed": "Windspeed (풍속)", 
+    "lights": "lights (조명 사용량)",
+    "hour_sin": "hour_sin (시간 사인)", 
+    "hour_cos": "hour_cos (시간 코사인)",
+    "day_sin": "day_sin (요일 사인)", 
+    "day_cos": "day_cos (요일 코사인)"
+}
 
 # -----------------------------
 # 모델 클래스 정의 (NumPy 기반)
@@ -208,9 +233,9 @@ with tab2:
         st.subheader("전자기기 에너지 소비량 분포")
         fig1, ax1 = plt.subplots(figsize=(6, 4))
         ax1.hist(raw_df["Appliances"], bins=30, color="#4C78A8", edgecolor="black")
-        ax1.set_xlabel("Energy Consumption (Wh)")
-        ax1.set_ylabel("Frequency")
-        ax1.set_title("Appliances Energy Distribution")
+        ax1.set_xlabel("에너지 소비량 (Wh)")
+        ax1.set_ylabel("빈도")
+        ax1.set_title("전자기기 에너지 소비량 분포")
         st.pyplot(fig1)
         plt.close(fig1)
 
@@ -219,9 +244,9 @@ with tab2:
         hourly = raw_df.groupby(raw_df["date"].dt.hour)["Appliances"].mean()
         fig2, ax2 = plt.subplots(figsize=(6, 4))
         ax2.plot(hourly.index, hourly.values, marker="o", color="#F58518")
-        ax2.set_xlabel("Hour of Day (0-23)")
-        ax2.set_ylabel("Mean Consumption (Wh)")
-        ax2.set_title("Hourly Average Energy Consumption")
+        ax2.set_xlabel("시간대 (0-23시)")
+        ax2.set_ylabel("평균 소비량 (Wh)")
+        ax2.set_title("시간대별 평균 에너지 소비량")
         ax2.set_xticks(range(0, 24, 2))
         ax2.grid(True, linestyle="--", alpha=0.5)
         st.pyplot(fig2)
@@ -359,7 +384,7 @@ with tab4:
     
     coefs = model.coefficients[1:]
     coef_df = pd.DataFrame({
-        "Feature": FEATURES,
+        "Feature": [FEATURE_NAMES_KO[f] for f in FEATURES],
         "Coefficient": coefs
     }).sort_values(by="Coefficient", ascending=True)
 
@@ -369,8 +394,8 @@ with tab4:
     ax_coef.barh(coef_df["Feature"], coef_df["Coefficient"], color=colors, edgecolor="black")
     ax_coef.axvline(0, color="gray", linestyle="--", linewidth=1)
     
-    ax_coef.set_xlabel("Impact on Energy Consumption (Wh) per 1 unit change")
-    ax_coef.set_title("Linear Regression Coefficients (Feature Importance)")
+    ax_coef.set_xlabel("1단위 변화당 에너지 소비량(Wh)에 미치는 영향")
+    ax_coef.set_title("선형회귀 계수 (변수 중요도)")
     st.pyplot(fig_coef)
     plt.close(fig_coef)
 
@@ -384,9 +409,9 @@ with tab4:
     fig3, ax3 = plt.subplots(figsize=(9, 3.5))
     ax3.hist(errors, bins=35, color="#54A24B", edgecolor="black")
     ax3.axvline(0, color="red", linestyle="--", linewidth=1.2)
-    ax3.set_xlabel("Prediction Error (Actual - Predicted, Wh)")
-    ax3.set_ylabel("Frequency")
-    ax3.set_title("Residual Error Distribution")
+    ax3.set_xlabel("예측 오차 (실제값 - 예측값, Wh)")
+    ax3.set_ylabel("빈도")
+    ax3.set_title("잔차(예측 오차) 분포")
     
     st.pyplot(fig3)
     plt.close(fig3)
